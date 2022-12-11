@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="bootstrap.min.css" rel="stylesheet">
+    <title>Spotify Data Calculator</title>
+  </head>
+  <body>
+    <div class="container" style="font-family: Cambria; padding-top: 10vh; text-align: center;">
+      <h1>Spotify Data Calculator</h1>
+      <br>
+      <br>
+      <label for="spotify-files" class="form-label">Files (specifically the endsong_[n].json files)</label>
+      <input
+        class="form-control"
+        id="spotify-files"
+        multiple
+        type="file"
+      >
+      <br>
+      <button class="btn btn-primary" onclick="window.location.reload()" type="button">Reset</button>
+      <br>
+      <br>
+      <span id="total-time"></span>
+      <br>
+      <br>
+      <span id="most-played"></span>
+      <br>
+      <br>
+      <span id="least-played"></span>
+    </div>
+    <script>
+      function timeString(ms) {
+        const msTimeObj = new Date(ms);
+        let timeString = `${msTimeObj.getUTCMinutes()} minutes, and ${msTimeObj.getUTCSeconds()} seconds`;
+        const hours = msTimeObj.getUTCHours();
+
+        if (hours) timeString = `${hours} hours, ${timeString}`;
+
+        const days = msTimeObj.getUTCDate() - 1;
+
+        if (days) timeString = `${days} days, ${timeString}`;
+
+        const months = msTimeObj.getUTCMonth();
+
+        if (months) timeString = `${months} months, ${timeString}`;
+
+        const years = msTimeObj.getUTCFullYear() - 1970;
+
+        if (years) timeString = `${years} years, ${timeString}`;
+
+        return timeString;
+    
+      }
+
+      const input = document.getElementById("spotify-files");
+
+      input.addEventListener("change", async (event) => {
+        if (!input || !input.files) return;
+
+        const recordEntries = [];
+        const totalTimePerSongMap = {};
+        let totalTime = 0;
+
+        for (const file of input.files) {
+          let data;
+
+          try {
+            data = JSON.parse(await file.text());
+          } catch {
+            continue;
+          }
+
+          for (const record of data) {
+            if (!record.spotify_track_uri) continue; // Not a song
+
+            recordEntries.push(record);
+            totalTime += record.ms_played;
+          }
+        }
+
+        for (const record of recordEntries) {
+          if (!totalTimePerSongMap[record.spotify_track_uri]) {
+            totalTimePerSongMap[record.spotify_track_uri] = {
+              artist: record.master_metadata_album_artist_name,
+              name: record.master_metadata_track_name,
+              time: record.ms_played,
+            };
+          } else {
+            totalTimePerSongMap[record.spotify_track_uri].time += record.ms_played;
+          }
+        }
+
+        const songTimeArray = Object.values(totalTimePerSongMap);
+        songTimeArray.sort((a, b) => {
+          a.ms_played < b.ms_played ? 1 : -1
+        });
+
+        const topSong = songTimeArray[0];
+        const bottomSong = songTimeArray[songTimeArray.length - 1];
+
+        document.getElementById("total-time").innerText = `You have listened to Spotify for:
+        ${timeString(totalTime)}.`
+        document.getElementById("most-played").innerText = `Your most played song was ${topSong.name} by ${topSong.artist},
+        which you have listened to for:
+        ${timeString(topSong.time)}.`
+        document.getElementById("least-played").innerText = `Your least played song was ${bottomSong.name} by ${bottomSong.artist},
+        which you have listened to for:
+        ${timeString(bottomSong.time)}.`
+      });
+    </script>
+  </body>
+</html>
